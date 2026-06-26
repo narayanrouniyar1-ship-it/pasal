@@ -1,0 +1,71 @@
+{
+  "api": [
+    {
+      "method": "POST",
+      "endpoint": "/api/v1/auth/request-otp",
+      "requestPayload": {
+        "phoneNumber": "+9779841234567"
+      },
+      "responseSchema": {
+        "status": "success",
+        "message": "OTP sent successfully",
+        "expiresIn": 300
+      }
+    },
+    {
+      "method": "POST",
+      "endpoint": "/api/v1/orders/checkout",
+      "requestPayload": {
+        "customerId": "uuid",
+        "cartItems": [
+          {
+            "productId": "prod_1",
+            "vendorId": "vendor_A",
+            "quantity": 2
+          },
+          {
+            "productId": "prod_2",
+            "vendorId": "vendor_B",
+            "quantity": 1
+          }
+        ],
+        "paymentMethod": "ESEWA"
+      },
+      "responseSchema": {
+        "orderId": "uuid",
+        "totalAmountNpr": 1500.00,
+        "split": [
+          {
+            "subOrderId": "uuid",
+            "vendorId": "vendor_A",
+            "trackingId": "TRK-A-123"
+          },
+          {
+            "subOrderId": "uuid",
+            "vendorId": "vendor_B",
+            "trackingId": "TRK-B-456"
+          }
+        ],
+        "paymentGatewayPayload": {
+          "url": "https://rc-epay.esewa.com.np/api/epay/main/v2/form",
+          "formData": {
+            "amount": "1500.00",
+            "signature": "hmac-sha256-hash..."
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "endpoint": "/api/v1/webhooks/logistics/upaya",
+      "requestPayload": {
+        "trackingId": "TRK-A-123",
+        "status": "SHIPPED",
+        "timestamp": "2026-06-26T12:00:00Z"
+      },
+      "responseSchema": {
+        "status": "acknowledged"
+      }
+    }
+  ]
+}

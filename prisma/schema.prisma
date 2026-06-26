@@ -1,0 +1,120 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  VENDOR
+  ADMIN
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model User {
+  id          String   @id @default(uuid())
+  phoneNumber String   @unique // Enforced +977 pattern at application level
+  otpSecret   String?
+  isVerified  Boolean  @default(false)
+  socialId    String?  // Fallback for Google/Facebook login
+  role        Role     @default(CUSTOMER)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  orders      Order[]
+  vendor      Vendor?
+}
+
+model Vendor {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id])
+  storeName   String
+  balanceNpr  Decimal  @default(0.00) @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+  
+  products    Product[]
+  subOrders   SubOrder[]
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  vendorId    String
+  vendor      Vendor   @relation(fields: [vendorId], references: [id])
+  title       String
+  priceNpr    Decimal  @db.Decimal(10, 2)
+  stock       Int      @default(0)
+  
+  orderItems  OrderItem[]
+}
+
+// Master Order (Customer facing)
+model Order {
+  id              String   @id @default(uuid())
+  customerId      String
+  customer        User     @relation(fields: [customerId], references: [id])
+  totalAmountNpr  Decimal  @db.Decimal(10, 2)
+  paymentMethod   String   // e.g., 'ESEWA', 'KHALTI', 'COD'
+  paymentStatus   PaymentStatus @default(PENDING)
+  createdAt       DateTime @default(now())
+
+  subOrders       SubOrder[]
+  paymentContext  PaymentContext?
+}
+
+// SubOrder (Vendor facing - handles split mechanics)
+model SubOrder {
+  id                  String   @id @default(uuid())
+  orderId             String
+  order               Order    @relation(fields: [orderId], references: [id])
+  vendorId            String
+  vendor              Vendor   @relation(fields: [vendorId], references: [id])
+  
+  subTotalNpr         Decimal  @db.Decimal(10, 2)
+  shippingCostNpr     Decimal  @db.Decimal(10, 2)
+  vendorPayoutNpr     Decimal  @db.Decimal(10, 2) // subTotal - platform fee
+  
+  trackingId          String?  @unique // Independent tracking per vendor
+  logisticsPartner    String?  // e.g., 'Upaya', 'Pathao'
+  status              OrderStatus @default(PENDING)
+
+  items               OrderItem[]
+}
+
+model OrderItem {
+  id          String   @id @default(uuid())
+  subOrderId  String
+  subOrder    SubOrder @relation(fields: [subOrderId], references: [id])
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  quantity    Int
+  priceNpr    Decimal  @db.Decimal(10, 2)
+}
+
+model PaymentContext {
+  id              String   @id @default(uuid())
+  orderId         String   @unique
+  order           Order    @relation(fields: [orderId], references: [id])
+  transactionUuid String   @unique
+  gateway         String   // 'ESEWA', 'KHALTI'
+  gatewayRefId    String?
+  signature       String?
+  createdAt       DateTime @default(now())
+}
